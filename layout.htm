@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <title>{{title}} - {{site.webname}}</title>
+    <link rel="stylesheet" href="https://www.layuicdn.com/layui/css/layui.css"  media="all">
+    <style>
+        .sp5 {width: 5px;}
+        .sp10 {width: 10px;}
+        .layui-nav, .layui-nav .layui-nav-item>a {padding: 0 10px; height: 60px;}
+        .layui-nav .layui-nav-item .layui-nav-more {height: 30px; line-height: 30px; margin-top: 15px;}
+        .layui-nav-child {left: auto; right: 0;}
+        .layui-form-label {width: 60px;}
+        .layui-input-block {margin-left: 90px;}
+        .table-wrap {margin: 10px 0; overflow-x: auto;}
+        .table-wrap .layui-table {margin: 0;}
+        .table-wrap .layui-table th,
+        .table-wrap .layui-table td {white-space: nowrap;}
+        .table-wrap .layui-table .title {white-space: break-spaces; min-width: 250px;}
+        .table-wrap .layui-table .content {white-space: break-spaces;}
+        .table-tools {display: flex;}
+        .table-tools .select {width: 100px;}
+        .table-tools .input {flex: 1; max-width: 250px;}
+        
+        /* pagination */
+        .pagination {
+            margin: 10px 0;
+        }
+        .page {
+            display: flex;
+        }
+        .page li {
+            margin-right: 6px;
+        }
+        .page li a {
+            display: block;
+            border: 1px solid #ccc;
+            transition: border-color .2s;
+            min-width: 36px;
+            height: 36px;
+            line-height: 34px;
+            overflow: hidden;
+            text-align: center;
+            padding: 0 10px;
+            box-sizing: border-box;
+        }
+        .page li:hover a {
+            border: 1px solid #46bc99;
+            color: #46bc99;
+        }
+        .page li.active a {
+            border: 1px solid #46bc99;
+            background-color: #46bc99;
+            color: #fff;
+        }
+        .pagination .info {
+            display: block;
+            margin-top: 10px;
+        }
+        .page li.prev, .page li.next {
+            display: none;
+        }
+        @media screen and (min-width: 961px) {
+            .pagination {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            .pagination .info {
+                margin-top: 0;
+            }
+            .pagination .page li.prev,
+            .pagination .page li.next {
+                display: block;
+            }
+        }
+        </style>
+    {{block 'css'}}{{/block}}
+</head>
+<body>
+{{if user}}
+<header>
+    <ul class="layui-nav" style="border-radius: 0;">
+        <li class="layui-nav-item"><a href="{{url('index/index')}}" title="{{site.webname}}"><i class="layui-icon layui-icon-home" style="font-size: 20px;"></i></a></li>
+        <li class="layui-nav-item"><a href="{{url('article/index')}}">文章列表</a></li>
+        <li class="layui-nav-item"><a href="{{url('article/form')}}">新增文章</a></li>
+        <li class="layui-nav-item" style="float: right;">
+            <a href="javascript:;" style="padding-right: 20px;">系统</a>
+            <dl class="layui-nav-child">
+                <dd><a href="{{url('site/index')}}">系统设置</a></dd>
+                <dd><a href="javascript:;" id="cache-clear">清理缓存</a></dd>
+                <dd><a href="{{url('index/logout')}}">退出</a></dd>
+            </dl>
+        </li>
+    </ul>
+</header>
+{{/if}}
+<div class="main" style="margin: 15px 10px;">
+    {{block 'main'}}{{/block}}
+</div>
+<script src="https://apps.bdimg.com/libs/jquery/1.9.1/jquery.min.js"></script>
+<script src="https://www.layuicdn.com/layui/layui.js"></script>
+<script>
+    layui.use('element', function() {
+        var element = layui.element;
+        $('#cache-clear').click(function() {
+            $.get("{{url('site/clear')}}", function(res) {
+                layer.msg(res.msg);
+            });
+        });
+    });
+</script>
+{{block 'js'}}{{/block}}
+</body>
+</html>
