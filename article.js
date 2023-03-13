@@ -1,27 +1,82 @@
-const {Model} = require('jj.js');
+const Base = require('./base');
 
-class Article extends Model
+class Article extends Base
 {
-    // 后台文章列表
-    async getArticleList(condition) {
-        return await this.db.table('article a').field('a.id,a.cate_id,a.user_id,a.title,a.writer,a.click,a.description,a.add_time,a.thumb,c.cate_name,c.cate_dir').join('cate c', 'a.cate_id=c.id').where(condition).order('a.id', 'desc').pagination();
+    async index() {
+        const cate_id = this.ctx.query.cate_id;
+        const keyword = this.ctx.query.keyword;
+
+        const condition = {};
+        if(cate_id > 0) {
+            condition['a.cate_id'] = cate_id;
+        }
+        if(keyword) {
+            condition['concat(a.title, a.writer)'] = ['like', '%' + keyword + '%'];
+        }
+
+        const cate_list = await this.$model.cate.getCateList();
+        const [list, pagination] = await this.$model.article.getArticleList(condition);
+
+        this.$assign('cate_id', cate_id);
+        this.$assign('keyword', keyword);
+        this.$assign('cate_list', cate_list);
+        this.$assign('list', list);
+        this.$assign('pagination', pagination.render());
+
+        await this.$fetch();
+    }
+    
+    async form() {
+        const cate_list = await this.$model.cate.getCateList();
+        const id = parseInt(this.ctx.query.id);
+        
+        let article = {};
+        if(id) {
+            article = await this.$model.article.get({id});
+        }
+
+        this.$assign('cate_list', cate_list);
+        this.$assign('article', article);
+        this.$assign('uname', this.user.uname);
+
+        const is_comment_option = [
+            {value: 0, name: '默认'},
+            {value: 1, name: '开启'},
+            {value: -1, name: '关闭'}
+        ];
+        this.$assign('is_comment_option', is_comment_option);
+
+        await this.$fetch();
     }
 
-    // 文章新增修改
-    async saveArticle(data, condition) {
-        if(!data.id && !data.add_time) {
-            data.add_time = this.$utils.time();
+    async save() {
+        if(this.ctx.method != 'POST') {
+            return this.$error('非法请求！');
         }
-        if(data.id && !data.update_time) {
-            data.update_time = this.$utils.time();
+
+        const data = this.ctx.request.body;
+        const result = await this.$model.article.saveArticle(data);
+
+        if(result) {
+            this.$success(data.id ? '保存成功！' : '新增成功！', 'index');
+        } else {
+            this.$error(data.id ? '保存失败！' : '新增失败！');
         }
-        return await super.save(data, condition);
     }
 
-    // 更新评论总数
-    async updateCommentTotal(id) {
-        const comment_total = await this.$model.comment.db.where({article_id: id}).count();
-        return await this.save({id, comment_total});
+    async delete() {
+        const id = parseInt(this.ctx.query.id);
+        
+        try {
+            await this.$db.startTrans(async () => {
+                await this.$model.article.del({id});
+                await this.$model.comment.del({article_id: id});
+            });
+            this.$success('删除成功！', 'index');
+        } catch (e) {
+            this.$logger.error('删除失败：' + e.message);
+            this.$error('删除失败！');
+        }
     }
 }
 

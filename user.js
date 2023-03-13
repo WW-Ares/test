@@ -1,64 +1,60 @@
-const {Model} = require('jj.js');
+const Base = require('./base');
 
-class User extends Model
+class User extends Base
 {
-    async getUserList(condition, rows=10, order='id', sort='asc') {
-        return await this.db.where(condition).order(order, sort).limit(rows).select();
+    async index() {
+        const list = await this.$model.user.getUserList(undefined, 100);
+        this.$assign('list', list);
+        await this.$fetch();
     }
 
-    async saveUser(data) {
-        if(data.id) {
-            data.add_time = this.$utils.time();
+    async form() {
+        const id = parseInt(this.ctx.query.id);
+        let user = {};
+        if(id) {
+            user = await this.$model.user.get({id});
+        }
+
+        this.$assign('user', user);
+        await this.$fetch();
+    }
+
+    async save() {
+        if(this.ctx.method != 'POST') {
+            return this.$error('非法请求！');
+        }
+
+        const data = this.ctx.request.body;
+        if(!data.email) {
+            return this.$error('账号不能为空！');
+        }
+        if(!data.id && !data.password) {
+            return this.$error('密码不能为空！');
+        }
+        if(data.password != data.password2) {
+            return this.$error('两次输入密码不一致！');
+        }
+
+        const result = await this.$model.user.saveUser(data);
+        if(result) {
+            this.$success(data.id ? '保存成功！' : '新增成功！', 'index');
         } else {
-            data.update_time = this.$utils.time();
+            this.$error(data.id ? '保存失败！' : '新增失败！');
+        }
+    }
+
+    async delete() {
+        const id = parseInt(this.ctx.query.id);
+        if(id == 1) {
+            return this.$error('管理员账号请手工在数据库删除！');
         }
 
-        if(data.password) {
-            data.salt = this.$utils.randomString(8);
-            data.password = this.passmd5(data.password, data.salt);
+        const result = await this.$model.user.del({id});
+        if(result) {
+            this.$success('删除成功！', 'index');
         } else {
-            delete data.password;
+            this.$error('删除失败！');
         }
-
-        return await this.save(data);
-    }
-
-    async lock(id) {
-        return await this.db.where({id}).inc('is_lock');
-    }
-
-    async login(email, password) {
-        const user = await this.get({email});
-
-        if(!user) {
-            return '账号或密码错误！';
-        }
-
-        if(this.is_lock(user)) {
-            return '账号已被锁定，请联系管理员！';
-        }
-
-        if(user.password != this.passmd5(password, user.salt)) {
-            await this.lock(user.id);
-            return user.is_lock < -2 ? '账号或密码错误！' : '密码剩余次数：' + (1 - user.is_lock);
-        }
-
-        await this.db.update({is_lock: -5, login_time: this.$utils.time()}, {id: user.id});
-        this.$service.cookie.set('user', user.id);
-    }
-
-    async logout() {
-        this.$service.cookie.delete('user');
-    }
-
-    is_lock(user) {
-        return user.is_lock > 0;
-    }
-
-    // 加密密码
-    passmd5(password, salt) {
-        const md5 = this.$utils.md5;
-        return md5(salt + md5(salt + md5(password + salt) + salt));
     }
 }
 

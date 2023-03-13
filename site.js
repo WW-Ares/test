@@ -1,26 +1,41 @@
-const {Model} = require('jj.js');
-const pjson = require('../../package.json');
+const Base = require('./base');
 
-class Site extends Model
+class Site extends Base
 {
-    constructor(...args) {
-        super(...args);
-        this.cacheTime = this.$config.cache.app_sql_cache_time;
-    }
-
-    async getSiteList(condition, order='id', sort='asc') {
-        return await this.db.where(condition).order(order, sort).select();
-    }
-
-    // 获取站点设置
-    async getConfig(kname) {
-        const result = await this.db.cache(this.cacheTime).column('value', 'kname');
-        if(kname) {
-            return result[kname];
+    async index() {
+        if(this.ctx.method == 'POST') {
+            const data = this.ctx.request.body;
+            const list = await this.$model.site.db.column('value', 'kname');
+            try {
+                await this.$model.site.db.startTrans();
+                const keys = Object.keys(data);
+                for(const key of keys) {
+                    if((key in list) && data[key] !== list[key]) {
+                        await this.$model.site.save({value: data[key]}, {kname: key});
+                    }
+                }
+                await this.$model.site.db.commit();
+                this.clear();
+                this.$success('保存成功！');
+            } catch(e) {
+                await this.$model.site.db.rollback();
+                this.$logger.error('保存失败：' + e.message);
+                this.$error(e.msg);
+            }
         } else {
-            result.VERSION = pjson.version;
-            result.APP_TIME = this.ctx.APP_TIME;
-            return result;
+            const list = await this.$model.site.getSiteList();
+            this.$assign('list', list);
+            await this.$fetch();
+        }
+    }
+
+    async clear() {
+        try {
+            await this.$middleware.cache.clear(); // 不建议这样调用中间件
+            this.$success('清理成功！');
+        } catch(e) {
+            this.$logger.error('清理失败：' + e.message);
+            this.$error('清理失败！');
         }
     }
 }

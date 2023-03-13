@@ -1,56 +1,31 @@
-const {Model} = require('jj.js');
+const Base = require('./base');
 
-class Comment extends Model
+class Comment extends Base
 {
-    // 后台评论管理
-    async getCommentList(condition) {
-        return await this.db.table('comment comment').field('comment.*,a.title').join('article a', 'comment.article_id=a.id').where(condition).order('comment.id', 'desc').pagination();
+    async index() {
+        const condition = {};
+        const keyword = this.ctx.query.keyword;
+        if(keyword) {
+            condition['concat(comment.uname, comment.email, comment.url, comment.content, comment.ip)'] = ['like', '%' + keyword + '%'];
+        }
+        const [list, pagination] = await this.$model.comment.getCommentList(condition);
+        
+        this.$assign('keyword', keyword);
+        this.$assign('list', list);
+        this.$assign('pagination', pagination.render());
+
+        await this.$fetch();
     }
 
-    // 删除评论
-    async delComment(id) {
-        const comment = await this.get({id});
-        if(!comment) {
-            return '数据不存在！';
+    async delete() {
+        const id = parseInt(this.ctx.query.id);
+        
+        const err = await this.$model.comment.delComment(id);
+        if(err) {
+            this.$error(err);
+        } else {
+            this.$success('删除成功！', 'index');
         }
-
-        try {
-            await this.db.startTrans(async () => {
-                if(comment.pid == 0) {
-                    await this.del({comment_id: id});
-                    return;
-                }
-
-                const ids = [id];
-                const children = await this.getChildren(id);
-                children.forEach(item => {
-                    ids.push(item.id);
-                });
-                await this.del({id: ['in', ids]});
-
-                await this.$model.article.updateCommentTotal(comment.article_id);
-            });
-
-            // 清理数据库缓存
-            this.db.deleteCache();
-        } catch (e) {
-            this.$logger.error('删除失败：' + e.message);
-            return '删除失败！';
-        }
-    }
-
-    // 获取评论回复
-    async getChildren(pid) {
-        let data = [];
-        if(pid == 0) {
-            return data;
-        }
-        const list = await this.all({pid});
-        data = data.concat(list);
-        for(const item of list) {
-            data = data.concat(await this.getChildren(item.id));
-        }
-        return data;
     }
 }
 
